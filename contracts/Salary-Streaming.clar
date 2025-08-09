@@ -4,6 +4,8 @@
 (define-constant ERR-EMPLOYEE-EXISTS (err u103))
 (define-constant ERR-NO-EMPLOYEE (err u104))
 (define-constant ERR-STREAM-ACTIVE (err u105))
+(define-constant ERR-STREAM-PAUSED (err u106))
+(define-constant ERR-STREAM-NOT-PAUSED (err u107))
 
 (define-data-var contract-owner principal tx-sender)
 (define-map Employees
@@ -24,6 +26,9 @@
         start-block: uint,
         end-block: uint,
         claimed: uint,
+        paused: bool,
+        paused-at-block: uint,
+        total-paused-blocks: uint,
     }
 )
 
@@ -99,6 +104,9 @@
             start-block: burn-block-height,
             end-block: (+ burn-block-height duration),
             claimed: u0,
+            paused: false,
+            paused-at-block: u0,
+            total-paused-blocks: u0,
         })
         (var-set treasury-balance (- (var-get treasury-balance) amount))
         (ok true)
@@ -107,17 +115,22 @@
 
 (define-read-only (get-claimable-amount (employee principal))
     (let ((stream (unwrap! (map-get? StreamingPayments employee) (ok u0))))
-        (let (
-                (total-blocks (- (get end-block stream) (get start-block stream)))
-                (elapsed-blocks (- burn-block-height (get start-block stream)))
-                (stream-amount (get amount stream))
-                (already-claimed (get claimed stream))
-            )
-            (if (>= burn-block-height (get end-block stream))
-                (ok (- stream-amount already-claimed))
-                (ok (- (/ (* stream-amount elapsed-blocks) total-blocks)
-                    already-claimed
-                ))
+        (if (get paused stream)
+            (ok u0)
+            (let (
+                    (total-blocks (- (get end-block stream) (get start-block stream)))
+                    (effective-elapsed (- (- burn-block-height (get start-block stream))
+                        (get total-paused-blocks stream)
+                    ))
+                    (stream-amount (get amount stream))
+                    (already-claimed (get claimed stream))
+                )
+                (if (>= burn-block-height (get end-block stream))
+                    (ok (- stream-amount already-claimed))
+                    (ok (- (/ (* stream-amount effective-elapsed) total-blocks)
+                        already-claimed
+                    ))
+                )
             )
         )
     )
@@ -129,6 +142,7 @@
             (stream (unwrap! (map-get? StreamingPayments employee) ERR-NO-EMPLOYEE))
             (claimable-amount (unwrap! (get-claimable-amount employee) ERR-INVALID-AMOUNT))
         )
+        (asserts! (not (get paused stream)) ERR-STREAM-PAUSED)
         (asserts! (> claimable-amount u0) ERR-INVALID-AMOUNT)
         (map-set StreamingPayments employee
             (merge stream { claimed: (+ (get claimed stream) claimable-amount) })
@@ -152,6 +166,41 @@
 
 (define-read-only (get-stream-info (employee principal))
     (ok (unwrap! (map-get? StreamingPayments employee) ERR-NO-EMPLOYEE))
+)
+
+(define-public (pause-stream (employee principal))
+    (begin
+        (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-NOT-AUTHORIZED)
+        (let ((stream (unwrap! (map-get? StreamingPayments employee) ERR-NO-EMPLOYEE)))
+            (asserts! (not (get paused stream)) ERR-STREAM-PAUSED)
+            (map-set StreamingPayments employee
+                (merge stream {
+                    paused: true,
+                    paused-at-block: burn-block-height,
+                })
+            )
+            (ok true)
+        )
+    )
+)
+
+(define-public (resume-stream (employee principal))
+    (begin
+        (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-NOT-AUTHORIZED)
+        (let ((stream (unwrap! (map-get? StreamingPayments employee) ERR-NO-EMPLOYEE)))
+            (asserts! (get paused stream) ERR-STREAM-NOT-PAUSED)
+            (let ((paused-duration (- burn-block-height (get paused-at-block stream))))
+                (map-set StreamingPayments employee
+                    (merge stream {
+                        paused: false,
+                        paused-at-block: u0,
+                        total-paused-blocks: (+ (get total-paused-blocks stream) paused-duration),
+                    })
+                )
+                (ok true)
+            )
+        )
+    )
 )
 
 (define-read-only (get-treasury-balance)
