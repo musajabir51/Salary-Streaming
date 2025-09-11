@@ -6,6 +6,8 @@
 (define-constant ERR-STREAM-ACTIVE (err u105))
 (define-constant ERR-STREAM-PAUSED (err u106))
 (define-constant ERR-STREAM-NOT-PAUSED (err u107))
+(define-constant ERR-INVALID-PERFORMANCE-RATING (err u108))
+(define-constant ERR-NO-PERFORMANCE-RATING (err u109))
 
 (define-data-var contract-owner principal tx-sender)
 (define-map Employees
@@ -33,6 +35,17 @@
 )
 
 (define-data-var treasury-balance uint u0)
+
+(define-map PerformanceRatings
+    principal
+    {
+        rating: uint,
+        bonus-multiplier: uint,
+        evaluation-period-start: uint,
+        evaluation-period-end: uint,
+        bonus-claimed: bool,
+    }
+)
 
 (define-public (initialize-contract)
     (begin
@@ -205,4 +218,88 @@
 
 (define-read-only (get-treasury-balance)
     (ok (var-get treasury-balance))
+)
+
+(define-public (set-performance-rating
+        (employee principal)
+        (rating uint)
+        (period-start uint)
+        (period-end uint)
+    )
+    (begin
+        (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-NOT-AUTHORIZED)
+        (asserts! (is-some (map-get? Employees employee)) ERR-NO-EMPLOYEE)
+        (asserts! (and (>= rating u1) (<= rating u10))
+            ERR-INVALID-PERFORMANCE-RATING
+        )
+        (asserts! (< period-start period-end) ERR-INVALID-AMOUNT)
+        (let ((bonus-multiplier (if (<= rating u3)
+                u50
+                (if (<= rating u6)
+                    u100
+                    (if (<= rating u8)
+                        u150
+                        u200
+                    )
+                )
+            )))
+            (map-set PerformanceRatings employee {
+                rating: rating,
+                bonus-multiplier: bonus-multiplier,
+                evaluation-period-start: period-start,
+                evaluation-period-end: period-end,
+                bonus-claimed: false,
+            })
+            (ok bonus-multiplier)
+        )
+    )
+)
+
+(define-read-only (calculate-performance-bonus (employee principal))
+    (let (
+            (employee-info (unwrap! (map-get? Employees employee) ERR-NO-EMPLOYEE))
+            (performance (unwrap! (map-get? PerformanceRatings employee)
+                ERR-NO-PERFORMANCE-RATING
+            ))
+            (evaluation-blocks (- (get evaluation-period-end performance)
+                (get evaluation-period-start performance)
+            ))
+            (hourly-rate (get hourly-rate employee-info))
+            (bonus-multiplier (get bonus-multiplier performance))
+        )
+        (if (get bonus-claimed performance)
+            (ok u0)
+            (let ((base-earnings (/ (* hourly-rate evaluation-blocks) u144)))
+                (ok (/ (* base-earnings bonus-multiplier) u100))
+            )
+        )
+    )
+)
+
+(define-public (claim-performance-bonus)
+    (let (
+            (employee tx-sender)
+            (performance (unwrap! (map-get? PerformanceRatings employee)
+                ERR-NO-PERFORMANCE-RATING
+            ))
+            (bonus-amount (unwrap! (calculate-performance-bonus employee) ERR-INVALID-AMOUNT))
+        )
+        (asserts! (>= burn-block-height (get evaluation-period-end performance))
+            ERR-INVALID-AMOUNT
+        )
+        (asserts! (not (get bonus-claimed performance)) ERR-INVALID-AMOUNT)
+        (asserts! (> bonus-amount u0) ERR-INVALID-AMOUNT)
+        (asserts! (>= (var-get treasury-balance) bonus-amount)
+            ERR-INSUFFICIENT-BALANCE
+        )
+        (map-set PerformanceRatings employee
+            (merge performance { bonus-claimed: true })
+        )
+        (var-set treasury-balance (- (var-get treasury-balance) bonus-amount))
+        (ok bonus-amount)
+    )
+)
+
+(define-read-only (get-performance-rating (employee principal))
+    (ok (unwrap! (map-get? PerformanceRatings employee) ERR-NO-PERFORMANCE-RATING))
 )
