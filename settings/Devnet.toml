@@ -1,0 +1,34 @@
+[network]
+name = "devnet"
+node_rpc_address = "http://localhost:20443"
+node_p2p_address = "localhost:20444"
+bitcoin_node_rpc_address = "http://localhost:18443"
+bitcoin_node_rpc_username = "devnet"
+bitcoin_node_rpc_password = "devnet"
+bitcoin_node_p2p_address = "localhost:18444"
+bitcoin_block_time = 30_000
+bitcoin_controller_block_time = 30_000
+
+[accounts.deployer]
+mnemonic = "sell invite acquire kitten bamboo drastic junk vivid peace spawn twice guilt pave pen trash pretty park cube fragile unaware remain midnight betray rebuild"
+balance = 100_000_000_000_000
+# stx1pqhqkv0rjrheezhqz2yrphl60nyxtrnnyrq9pzjkly6v3cnwh2n6xqfj6a7d
+# SM2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKQVX8X0G
+
+[accounts.wallet_1]
+mnemonic = "hold grief brave title drop diary suffer cement broom romance patient crash"
+balance = 100_000_000_000_000
+# stx1j9kqjhr26yccxn5p60xd7xagctqpqpb5z38px66
+# SM7W8Z7JB2WC3AY3FVXHG0HPHZ9KZHGK5B6Q9Y1XD
+
+[accounts.wallet_2]
+mnemonic = "shadow private easily thought say logic fault paddle word top book during"
+balance = 100_000_000_000_000
+# stx1wn34p46cp4bx5j8mx2bzkdprsn5prd87jc4c1e
+# SM8X9A0K36C6FJ0ZB6RBT5CFGF7XJGJ7TV9EXGVQR
+
+[accounts.wallet_3]
+mnemonic = "afraid eager speed focus present glow unfold peace teach element crystal submit"
+balance = 100_000_000_000_000
+# stx1r14gmwf2sck5nj86wq74gm8wcv8v3kcx7zh0h4
+# SM9Y2B1L40D7GK19C7S5MH5JGG8YKH8MW6AEYHT5S
