@@ -1,0 +1,15 @@
+[accounts.deployer]
+mnemonic = "test test test test test test test test test test test junk"
+balance = 100_000_000_000_000
+
+[accounts.wallet_1]
+mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+balance = 100_000_000_000_000
+
+[accounts.wallet_2]
+mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+balance = 100_000_000_000_000
+
+[accounts.wallet_3]
+mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+balance = 100_000_000_000_000
